@@ -1,0 +1,35 @@
+- name: Create Instance Group
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Check if Instance Group is exist
+      command: gcloud compute instance-groups list --filter="name='{{ instance_group_name }}'" --format json
+      register: ig_list
+      tags: create_instance_group
+
+    - name: Create Instance Group
+      command: gcloud beta compute instance-groups managed create {{ instance_group_name }} \
+                   --size {{ instance_group_size | default(1) }} \
+                   --template={{ instance_template_name }} \
+                   {{ instance_group_health_check is defined | ternary('--health-check="' + instance_group_health_check | default('') + '"', '') }} \
+                   {{ instance_group_health_check is defined | ternary('--initial-delay="' + instance_group_initial_delay | default('') + '"', '') }} \
+                   --region={{ instance_group_region | default('asia-southeast1') }}
+      when: ig_list.stdout == '[]'
+      tags: create_instance_group
+
+    - name: Create autoscaling
+      command: gcloud compute instance-groups managed set-autoscaling {{ instance_group_name }} \
+                   --max-num-replicas={{ instance_group_max_size | default(1) }} \
+                   --min-num-replicas={{ instance_group_min_size | default(1) }} \
+                   --target-cpu-utilization={{ instance_group_utilization | default(0.60) }} \
+                   --cool-down-period={{ instance_group_cooldown_period | default(300) }} \
+                   --region={{ instance_group_region | default('asia-southeast1') }}
+      when: ig_list.stdout == '[]' and create_autoscaling is defined
+      tags: create_instance_group
+
+    - name: Set Port Mappings
+      command: gcloud compute instance-groups managed set-named-ports {{ instance_group_name }} \
+                   --named-ports '{{ instance_group_named_port }}' \
+                   --region {{ instance_group_region | default('asia-southeast1') }}
+      when: instance_group_named_port is defined and ig_list.stdout == '[]'
+      tags: create_instance_group

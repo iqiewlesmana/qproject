@@ -1,0 +1,15 @@
+- name: Attach Instance Group to Load Balancer
+  hosts: localhost
+  connection: local
+  tasks:
+   - name: Add Instance Group to Load Balancer
+     command: gcloud compute backend-services add-backend {{ backend_service_name }} \
+                      --instance-group={{ instance_group_name }} \
+                      {{ (load_balancer_type == 'external') | ternary('--balancing-mode="' + load_balancer_mode | default('') + '"', '') }} \
+                      {{ (load_balancer_type == 'external' and load_balancer_max_rate is defined ) | ternary('--max-rate-per-instance="' + load_balancer_max_rate | default('') + '"', '') }} \
+                      {{ (load_balancer_type == 'external' and load_balancer_max_utilization is defined) | ternary('--max-utilization="' + load_balancer_max_utilization | default('') + '"', '') }} \
+                      {{ (load_balancer_type == 'external' and load_balancer_capacity_scaler is defined) | ternary('--capacity-scaler="' + load_balancer_capacity_scaler | default('100') + '"', '') }} \
+                      --instance-group-region={{ instance_group_region | default('asia-southeast1') }} \
+                      {{ (load_balancer_type == 'external') | ternary('--global', '') }} \
+                      {{ (load_balancer_type == 'internal') | ternary('--region ' + load_balancer_region | default('asia-southeast1'), '') }}
+     tags: attach_ig_to_load_balancer

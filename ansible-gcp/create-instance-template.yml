@@ -1,0 +1,31 @@
+- name: Create Instance Template {{ instance_template_name }}
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Check if instance template {{ instance_template_name }} exist
+      command: gcloud compute instance-templates list --filter name={{ instance_template_name }} --format json
+      register: instance_template_exist
+      tags: instance_template
+
+    - name: Creating {{ instance_template_name }}
+      command: gcloud compute instance-templates create {{ instance_template_name }} \
+        {{ instance_template_project_id is defined | ternary('--project "' + instance_template_project_id + '"', '') }} \
+        --image "{{ instance_template_image_name }}" \
+        --machine-type "{{ instance_template_machine_size }}" \
+        --tags "{{ instance_template_tags }}" \
+        --network "{{ instance_template_network }}" \
+        --subnet "{{ instance_template_subnetwork }}" \
+        --no-address \
+        --service-account "default" \
+        --scopes "{{ instance_template_scope | default('cloud-platform') }}" \
+        {{ (instance_template_preemptible is defined and instance_template_preemptible) | ternary('--preemptible', '') }} \
+        {{ (instance_template_labels is defined) | ternary('--labels "' + instance_template_labels | default('') +'"', '') }} \
+        --min-cpu-platform "{{ instance_template_cpu_platform | default('Intel Skylake') }}" \
+        --boot-disk-size "{{ instance_template_disk_size | default('10GB') }}" \
+        --boot-disk-type "{{ instance_template_disk_type | default('pd-ssd') }}" \
+        --metadata \
+          startup-script="{{ instance_template_startup_script | default('/opt/gcp/startup/startup.sh') }}",shutdown-script="{{ instance_template_startup_script | default('/opt/gcp/shutdown/shutdown.sh') }}"{{ instance_template_custom_metadata is defined | ternary(',"' + instance_template_custom_metadata | default('') + '"', '') }}
+      when: instance_template_exist.stdout == '[]'
+      tags: instance_template
